@@ -11,6 +11,7 @@ const Auth0ProviderWithHistory = ({ children }) => {
       domain={domain}
       clientId={clientId}
       redirectUri={redirectUri}
+      
     >
       {children}
     </Auth0Provider>

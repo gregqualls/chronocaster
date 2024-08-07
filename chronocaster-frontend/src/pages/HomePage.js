@@ -1,8 +1,9 @@
 import React from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
+import LoginButton from '../components/Login';
 
 const HomePage = () => {
-  const { loginWithRedirect, isAuthenticated, logout } = useAuth0();
+  const { isAuthenticated, logout } = useAuth0();
 
   return (
     <div>
@@ -12,7 +13,7 @@ const HomePage = () => {
           Log Out
         </button>
       ) : (
-        <button onClick={() => loginWithRedirect()}>Log In</button>
+        <LoginButton />
       )}
     </div>
   );

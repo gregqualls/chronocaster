@@ -1,18 +1,23 @@
 import React from 'react';
-import { useAuth0 } from '@auth0/auth0-react';
+import { Container, Typography } from '@mui/material';
+import Navbar from '../components/Navbar';
+import Sidebar from '../components/Sidebar';
 
 const Dashboard = () => {
-  const { user, isAuthenticated } = useAuth0();
-
   return (
     <div>
-      <h2>Dashboard</h2>
-      {isAuthenticated && (
-        <div>
-          <h3>Welcome, {user.name}</h3>
-          <p>Email: {user.email}</p>
-        </div>
-      )}
+      <Navbar />
+      <div style={{ display: 'flex' }}>
+        <Sidebar />
+        <Container>
+          <Typography variant="h2" gutterBottom>
+            Dashboard
+          </Typography>
+          <Typography variant="body1">
+            Welcome to the ChronoCaster Dashboard! Here you can manage your programs, units, and segments.
+          </Typography>
+        </Container>
+      </div>
     </div>
   );
 };
