@@ -1,25 +1,30 @@
 // src/components/Navbar.js
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { IconButton } from '@mui/material';
-import { Brightness4, Brightness7 } from '@mui/icons-material';
-import { useColorMode } from '../theme/ThemeProvider';
+import { useTheme } from '../theme/ThemeContext';
 
 const Navbar = () => {
-  const { toggleColorMode } = useColorMode();
-  const mode = document.body.classList.contains('dark') ? 'dark' : 'light';
+  const { theme, toggleTheme } = useTheme();
 
   return (
-    <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem' }}>
-      <h1>ChronoCaster Dashboard</h1>
-      <div>
-        <Link to="/dashboard">Dashboard</Link>
-        <Link to="/programs">Programs</Link>
-        <Link to="/units">Units</Link>
-        <Link to="/segments">Segments</Link>
-        <IconButton onClick={toggleColorMode} color="inherit">
-          {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
-        </IconButton>
+    <nav className="bg-white dark:bg-gray-800 shadow-lg">
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="flex justify-between items-center py-4">
+          <div className="flex items-center">
+            <h1 className="text-xl font-bold text-gray-800 dark:text-white">ChronoCaster</h1>
+          </div>
+          <div className="flex items-center space-x-4">
+            <Link to="/dashboard" className="text-gray-800 dark:text-white">Dashboard</Link>
+            <Link to="/programs" className="text-gray-800 dark:text-white">Programs</Link>
+            <Link to="/units" className="text-gray-800 dark:text-white">Units</Link>
+            <button
+              onClick={toggleTheme}
+              className="text-gray-800 dark:text-white bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded"
+            >
+              {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+            </button>
+          </div>
+        </div>
       </div>
     </nav>
   );
