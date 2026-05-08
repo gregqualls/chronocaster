@@ -26,6 +26,8 @@ applications:
 
       deploy: |
         set -ex
+        php artisan optimize:clear
+        php artisan package:discover --ansi
         php artisan migrate --force
         php artisan db:seed --force
         php artisan optimize
