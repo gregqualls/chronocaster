@@ -1,24 +1,206 @@
-import React from 'react';
-import { Container, Typography } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
+import {
+  Box,
+  Button,
+  Card,
+  CardActionArea,
+  CardContent,
+  Chip,
+  Container,
+  Grid,
+  Stack,
+  Typography,
+} from '@mui/material';
+import {
+  Add,
+  CalendarMonth,
+  FiberManualRecord,
+  GroupsOutlined,
+  PlayArrow,
+  Schedule,
+} from '@mui/icons-material';
 import Navbar from '../components/Navbar';
-import Sidebar from '../components/Sidebar';
+import { events } from '../data/events';
+import { fmtDuration, fmtSchedule } from '../utils/format';
+
+const statusMeta = {
+  ready:     { label: 'READY',     color: 'primary',   variant: 'filled' },
+  scheduled: { label: 'SCHEDULED', color: 'secondary', variant: 'outlined' },
+  completed: { label: 'COMPLETED', color: 'default',   variant: 'outlined' },
+};
+
+const Stat = ({ label, value, sub, icon }) => (
+  <Card elevation={0} sx={{ flex: 1 }}>
+    <CardContent>
+      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
+        {icon}
+        <Typography variant="overline" color="text.secondary">
+          {label}
+        </Typography>
+      </Stack>
+      <Typography variant="h4" sx={{ fontFamily: 'JetBrains Mono, monospace' }}>
+        {value}
+      </Typography>
+      {sub && (
+        <Typography variant="caption" color="text.secondary">
+          {sub}
+        </Typography>
+      )}
+    </CardContent>
+  </Card>
+);
+
+const EventCard = ({ event }) => {
+  const meta = statusMeta[event.status];
+  const isReady = event.status === 'ready';
+  const isCompleted = event.status === 'completed';
+
+  return (
+    <Card sx={{ height: '100%', opacity: isCompleted ? 0.65 : 1 }}>
+      <CardActionArea
+        component={RouterLink}
+        to={`/events/${event.id}`}
+        sx={{ height: '100%', alignItems: 'stretch' }}
+      >
+        <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%' }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Chip
+              size="small"
+              icon={
+                isReady ? <FiberManualRecord sx={{ fontSize: 10 }} /> : undefined
+              }
+              label={meta.label}
+              color={meta.color}
+              variant={meta.variant}
+              sx={{ fontWeight: 700, letterSpacing: 1.5 }}
+            />
+            <Typography variant="caption" color="text.secondary">
+              {event.show}
+            </Typography>
+          </Stack>
+
+          <Typography variant="h6" sx={{ lineHeight: 1.25 }}>
+            {event.name}
+          </Typography>
+
+          <Stack direction="row" spacing={2} color="text.secondary" sx={{ mt: 'auto' }}>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <Schedule sx={{ fontSize: 16 }} />
+              <Typography variant="body2">{fmtSchedule(event.scheduledAt)}</Typography>
+            </Stack>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <CalendarMonth sx={{ fontSize: 16 }} />
+              <Typography variant="body2">{fmtDuration(event.durationSec)}</Typography>
+            </Stack>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <GroupsOutlined sx={{ fontSize: 16 }} />
+              <Typography variant="body2">{event.crew.length}</Typography>
+            </Stack>
+          </Stack>
+
+          {isReady && (
+            <Button
+              size="small"
+              variant="contained"
+              color="primary"
+              startIcon={<PlayArrow />}
+              sx={{ alignSelf: 'flex-start', mt: 1, fontWeight: 700, letterSpacing: 1 }}
+            >
+              GO TO CONTROL ROOM
+            </Button>
+          )}
+        </CardContent>
+      </CardActionArea>
+    </Card>
+  );
+};
+
+const useNow = (intervalMs = 30_000) => {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => force((x) => x + 1), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+};
 
 const Dashboard = () => {
+  useNow();
+
+  const upcoming = events.filter((e) => e.status !== 'completed');
+  const recent = events.filter((e) => e.status === 'completed');
+  const ready = events.filter((e) => e.status === 'ready');
+
   return (
-    <div>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <Navbar />
-      <div style={{ display: 'flex' }}>
-        <Sidebar />
-        <Container>
-          <Typography variant="h2" gutterBottom>
-            Dashboard
-          </Typography>
-          <Typography variant="body1">
-            Welcome to the ChronoCaster Dashboard! Here you can manage your programs, units, and segments.
-          </Typography>
-        </Container>
-      </div>
-    </div>
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          spacing={2}
+          sx={{ mb: 3 }}
+        >
+          <Box>
+            <Typography variant="overline" color="text.secondary">
+              Control Room
+            </Typography>
+            <Typography variant="h4">Schedule</Typography>
+          </Box>
+          <Button variant="outlined" color="primary" startIcon={<Add />}>
+            New Event
+          </Button>
+        </Stack>
+
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} sx={{ mb: 4 }}>
+          <Stat
+            label="Ready Now"
+            value={ready.length}
+            sub={ready.length ? 'standby for go-live' : 'nothing queued'}
+            icon={<FiberManualRecord color="primary" sx={{ fontSize: 14 }} />}
+          />
+          <Stat
+            label="Upcoming"
+            value={upcoming.length}
+            sub="across all shows"
+            icon={<Schedule color="secondary" fontSize="small" />}
+          />
+          <Stat
+            label="Connected Studios"
+            value="4"
+            sub="all peers in sync"
+            icon={<GroupsOutlined color="success" fontSize="small" />}
+          />
+        </Stack>
+
+        <Typography variant="overline" color="text.secondary">
+          Upcoming
+        </Typography>
+        <Grid container spacing={3} sx={{ mt: 0.5, mb: 4 }}>
+          {upcoming.map((e) => (
+            <Grid item xs={12} sm={6} lg={4} key={e.id}>
+              <EventCard event={e} />
+            </Grid>
+          ))}
+        </Grid>
+
+        {recent.length > 0 && (
+          <>
+            <Typography variant="overline" color="text.secondary">
+              Recent
+            </Typography>
+            <Grid container spacing={3} sx={{ mt: 0.5 }}>
+              {recent.map((e) => (
+                <Grid item xs={12} sm={6} lg={4} key={e.id}>
+                  <EventCard event={e} />
+                </Grid>
+              ))}
+            </Grid>
+          </>
+        )}
+      </Container>
+    </Box>
   );
 };
 
