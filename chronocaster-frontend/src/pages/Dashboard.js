@@ -21,7 +21,7 @@ import {
   Schedule,
 } from '@mui/icons-material';
 import Navbar from '../components/Navbar';
-import { events } from '../data/events';
+import { fetchEvents } from '../services/events';
 import { fmtDuration, fmtSchedule } from '../utils/format';
 
 const statusMeta = {
@@ -126,6 +126,21 @@ const useNow = (intervalMs = 30_000) => {
 
 const Dashboard = () => {
   useNow();
+  const [events, setEvents] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchEvents()
+      .then((data) => {
+        if (!cancelled) setEvents(data);
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const upcoming = events.filter((e) => e.status !== 'completed');
   const recent = events.filter((e) => e.status === 'completed');

@@ -50,5 +50,7 @@ class DatabaseSeeder extends Seeder
             $role = Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
             $role->syncPermissions($rolePermissions);
         }
+
+        $this->call(DemoSeeder::class);
     }
 }
