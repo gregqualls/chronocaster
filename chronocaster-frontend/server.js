@@ -24,12 +24,14 @@ if (!backendUrl) {
   console.warn('No backend relationship configured; /api requests will 502.');
 }
 
+// Use pathFilter (not Express mount) so the /api prefix is preserved when
+// forwarding to Laravel — `app.use('/api', ...)` would strip it.
 app.use(
-  '/api',
   createProxyMiddleware({
     target: backendUrl || 'http://127.0.0.1:0',
     changeOrigin: true,
     xfwd: true,
+    pathFilter: '/api',
   }),
 );
 

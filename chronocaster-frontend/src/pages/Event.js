@@ -1,11 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import {
+  Alert,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Container,
   Divider,
   Grid,
@@ -16,35 +18,68 @@ import {
 import {
   ArrowBack,
   CalendarMonth,
+  FastForward,
   FiberManualRecord,
   GroupsOutlined,
+  Pause,
   PlayArrow,
   Schedule,
+  Share,
   Stop,
   Sync,
   Wifi,
 } from '@mui/icons-material';
 import Navbar from '../components/Navbar';
-import { findEvent } from '../data/events';
-import { fmtDuration, fmtSchedule, fmtTimer } from '../utils/format';
+import {
+  advanceEvent,
+  fetchEvent,
+  fetchEventState,
+  pauseEvent,
+  resumeEvent,
+  startEvent,
+  stopEvent,
+} from '../services/events';
+import { fmtDuration, fmtSchedule, fmtSigned, fmtTimer } from '../utils/format';
 
-const useTicker = (active) => {
-  const [t, setT] = useState(0);
-  useEffect(() => {
-    if (!active) return undefined;
-    const id = setInterval(() => setT((x) => x + 1), 1000);
-    return () => clearInterval(id);
-  }, [active]);
-  return t;
-};
+const POLL_MS = 2000;
 
-const useCountdownTo = (iso) => {
+const useNowMs = () => {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
-  return Math.round((new Date(iso).getTime() - now) / 1000);
+  return now;
+};
+
+const computeLive = (event, nowMs) => {
+  if (!event?.rundown?.length) {
+    return { activeIndex: 0, elapsedInActive: 0, totalElapsed: 0, totalDuration: 0 };
+  }
+
+  const totalDuration = event.rundown.reduce((a, s) => a + s.duration, 0);
+
+  if (!event.currentSegmentStartedAt) {
+    return { activeIndex: 0, elapsedInActive: 0, totalElapsed: 0, totalDuration };
+  }
+
+  const startedMs = new Date(event.currentSegmentStartedAt).getTime();
+  const reference = event.status === 'paused' && event.pausedAt
+    ? new Date(event.pausedAt).getTime()
+    : nowMs;
+
+  const elapsedInActive = Math.max(0, Math.floor((reference - startedMs) / 1000));
+
+  let activeIndex = event.rundown.findIndex(
+    (s) => String(s.id) === String(event.currentSegmentId),
+  );
+  if (activeIndex < 0) activeIndex = 0;
+
+  const totalElapsed =
+    event.rundown.slice(0, activeIndex).reduce((a, s) => a + s.duration, 0) +
+    elapsedInActive;
+
+  return { activeIndex, elapsedInActive, totalElapsed, totalDuration };
 };
 
 const StatusDot = ({ color = 'success.main' }) => (
@@ -114,8 +149,11 @@ const RundownRow = ({ seg, index, activeIndex }) => {
   );
 };
 
-const PreShow = ({ event, onStart }) => {
-  const secsToStart = useCountdownTo(event.scheduledAt);
+const PreShow = ({ event, onStart, busy, canControl }) => {
+  const nowMs = useNowMs();
+  const secsToStart = event.scheduledAt
+    ? Math.round((new Date(event.scheduledAt).getTime() - nowMs) / 1000)
+    : 0;
   const future = secsToStart > 0;
 
   return (
@@ -157,22 +195,21 @@ const PreShow = ({ event, onStart }) => {
             <Typography color="text.secondary" sx={{ mb: 4 }}>
               {fmtSchedule(event.scheduledAt)} · {fmtDuration(event.durationSec)}
             </Typography>
-            <Button
-              size="large"
-              variant="contained"
-              color="primary"
-              startIcon={<PlayArrow />}
-              onClick={onStart}
-              sx={{
-                fontWeight: 800,
-                letterSpacing: 2,
-                px: 5,
-                py: 1.5,
-                fontSize: 18,
-              }}
-            >
-              GO LIVE
-            </Button>
+            {canControl ? (
+              <Button
+                size="large"
+                variant="contained"
+                color="primary"
+                startIcon={busy ? <CircularProgress size={18} color="inherit" /> : <PlayArrow />}
+                onClick={onStart}
+                disabled={busy}
+                sx={{ fontWeight: 800, letterSpacing: 2, px: 5, py: 1.5, fontSize: 18 }}
+              >
+                GO LIVE
+              </Button>
+            ) : (
+              <Chip label="Standing by for the director" variant="outlined" />
+            )}
             <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 1.5 }}>
               All connected studios will sync to this clock.
             </Typography>
@@ -188,8 +225,8 @@ const PreShow = ({ event, onStart }) => {
                 Crew
               </Typography>
               <Stack spacing={1} sx={{ mt: 1.5 }}>
-                {event.crew.map((person, i) => (
-                  <Stack key={person} direction="row" spacing={1.5} alignItems="center">
+                {(event.crew ?? []).map((person, i) => (
+                  <Stack key={`${person}-${i}`} direction="row" spacing={1.5} alignItems="center">
                     <Box
                       sx={{
                         width: 28,
@@ -245,31 +282,19 @@ const PreShow = ({ event, onStart }) => {
   );
 };
 
-const Live = ({ event, onStop }) => {
-  const tick = useTicker(true);
-  const total = event.rundown.reduce((a, s) => a + s.duration, 0);
+const Live = ({ event, canControl, onPause, onResume, onAdvance, onStop, onShare, busy }) => {
+  const nowMs = useNowMs();
+  const { activeIndex, elapsedInActive, totalElapsed, totalDuration } = computeLive(event, nowMs);
+  const active = event.rundown[activeIndex] ?? event.rundown[0];
+  const remaining = (active?.duration ?? 0) - elapsedInActive;
+  const progress = active ? Math.min(100, (elapsedInActive / Math.max(1, active.duration)) * 100) : 0;
+  const remainingTotal = totalDuration - totalElapsed;
+  const isPaused = event.status === 'paused';
 
-  let activeIndex = 0;
-  let elapsedInActive = 0;
-  let cumulative = 0;
-  for (let i = 0; i < event.rundown.length; i += 1) {
-    const seg = event.rundown[i];
-    if (tick < cumulative + seg.duration) {
-      activeIndex = i;
-      elapsedInActive = tick - cumulative;
-      break;
-    }
-    cumulative += seg.duration;
-    if (i === event.rundown.length - 1) {
-      activeIndex = event.rundown.length - 1;
-      elapsedInActive = seg.duration;
-    }
-  }
-
-  const active = event.rundown[activeIndex];
-  const remaining = active.duration - elapsedInActive;
-  const progress = Math.min(100, (elapsedInActive / active.duration) * 100);
-  const remainingTotal = total - tick;
+  const showStartedMs = event.startedAt ? new Date(event.startedAt).getTime() : null;
+  const referenceMs = isPaused && event.pausedAt ? new Date(event.pausedAt).getTime() : nowMs;
+  const actualElapsedSec = showStartedMs ? Math.max(0, Math.floor((referenceMs - showStartedMs) / 1000)) : 0;
+  const pace = totalElapsed - actualElapsedSec; // > 0 ahead, < 0 over time
 
   return (
     <Grid container spacing={3}>
@@ -277,36 +302,42 @@ const Live = ({ event, onStop }) => {
         <Card>
           <Box
             sx={{
-              px: 3,
-              py: 2,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              borderBottom: 1,
-              borderColor: 'divider',
+              px: 3, py: 2,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              borderBottom: 1, borderColor: 'divider',
             }}
           >
             <Stack direction="row" spacing={1.5} alignItems="center">
               <Chip
                 size="small"
                 icon={<FiberManualRecord sx={{ fontSize: 10 }} />}
-                label="LIVE"
-                color="primary"
+                label={isPaused ? 'PAUSED' : 'LIVE'}
+                color={isPaused ? 'warning' : 'primary'}
                 sx={{ fontWeight: 700, letterSpacing: 1.5 }}
               />
               <Typography variant="overline" color="text.secondary">
                 Now Playing — Segment {activeIndex + 1} of {event.rundown.length}
               </Typography>
             </Stack>
-            <Button
-              size="small"
-              variant="outlined"
-              color="inherit"
-              startIcon={<Stop />}
-              onClick={onStop}
-            >
-              End
-            </Button>
+            {canControl && (
+              <Stack direction="row" spacing={1}>
+                {isPaused ? (
+                  <Button size="small" variant="contained" color="primary" startIcon={<PlayArrow />} onClick={onResume} disabled={busy}>
+                    Resume
+                  </Button>
+                ) : (
+                  <Button size="small" variant="outlined" color="inherit" startIcon={<Pause />} onClick={onPause} disabled={busy}>
+                    Pause
+                  </Button>
+                )}
+                <Button size="small" variant="outlined" color="inherit" startIcon={<FastForward />} onClick={onAdvance} disabled={busy}>
+                  Advance
+                </Button>
+                <Button size="small" variant="outlined" color="inherit" startIcon={<Stop />} onClick={onStop} disabled={busy}>
+                  End
+                </Button>
+              </Stack>
+            )}
           </Box>
           <CardContent sx={{ py: 5, textAlign: 'center' }}>
             <Typography variant="overline" color="text.secondary">
@@ -324,24 +355,16 @@ const Live = ({ event, onStop }) => {
               {fmtTimer(remaining)}
             </Typography>
             <Typography variant="h5" sx={{ mt: 2 }}>
-              {active.name}
+              {active?.name ?? '—'}
             </Typography>
             <Box sx={{ mt: 3, px: 4 }}>
-              <LinearProgress
-                variant="determinate"
-                value={progress}
-                sx={{ height: 8, borderRadius: 4 }}
-              />
-              <Stack
-                direction="row"
-                justifyContent="space-between"
-                sx={{ mt: 1, fontFamily: 'JetBrains Mono, monospace' }}
-              >
+              <LinearProgress variant="determinate" value={progress} sx={{ height: 8, borderRadius: 4 }} />
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1, fontFamily: 'JetBrains Mono, monospace' }}>
                 <Typography variant="caption" color="text.secondary">
                   {fmtTimer(elapsedInActive)} elapsed
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {fmtTimer(active.duration)} planned
+                  {fmtTimer(active?.duration ?? 0)} planned
                 </Typography>
               </Stack>
             </Box>
@@ -363,7 +386,7 @@ const Live = ({ event, onStop }) => {
                 {fmtTimer(remainingTotal)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {fmtTimer(tick)} of {fmtTimer(total)} elapsed
+                {fmtTimer(totalElapsed)} of {fmtTimer(totalDuration)} elapsed
               </Typography>
             </CardContent>
           </Card>
@@ -376,26 +399,32 @@ const Live = ({ event, onStop }) => {
                 </Typography>
               </Stack>
               <Typography variant="h4" sx={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                {event.crew.length + 4}
+                {(event.crew?.length ?? 0) + 4}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {event.crew.length} producers · 4 viewers
+                {(event.crew?.length ?? 0)} producers · 4 viewers
               </Typography>
             </CardContent>
           </Card>
           <Card elevation={0}>
             <CardContent>
               <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
-                <Sync color="success" fontSize="small" />
+                <Sync color={pace >= 0 ? 'success' : 'warning'} fontSize="small" />
                 <Typography variant="overline" color="text.secondary">
-                  Sync Drift
+                  Schedule Pace
                 </Typography>
               </Stack>
-              <Typography variant="h4" sx={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                ±42ms
+              <Typography
+                variant="h4"
+                sx={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  color: pace >= 0 ? 'success.main' : 'warning.main',
+                }}
+              >
+                {fmtSigned(pace)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                all clients within tolerance
+                {pace >= 0 ? 'ahead of plan' : 'over plan'} · {fmtTimer(actualElapsedSec)} since go-live
               </Typography>
             </CardContent>
           </Card>
@@ -406,20 +435,16 @@ const Live = ({ event, onStop }) => {
         <Card>
           <Box
             sx={{
-              px: 3,
-              py: 2,
-              borderBottom: 1,
-              borderColor: 'divider',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
+              px: 3, py: 2,
+              borderBottom: 1, borderColor: 'divider',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}
           >
             <Typography variant="overline" color="text.secondary">
               Rundown
             </Typography>
             <Typography variant="overline" color="text.secondary">
-              {event.rundown.length} segments · {fmtTimer(total)} total
+              {event.rundown.length} segments · {fmtTimer(totalDuration)} total
             </Typography>
           </Box>
           <Box>
@@ -442,13 +467,9 @@ const PreShowRundown = ({ event }) => {
     <Card sx={{ mt: 3 }}>
       <Box
         sx={{
-          px: 3,
-          py: 2,
-          borderBottom: 1,
-          borderColor: 'divider',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
+          px: 3, py: 2,
+          borderBottom: 1, borderColor: 'divider',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}
       >
         <Typography variant="overline" color="text.secondary">
@@ -472,35 +493,94 @@ const PreShowRundown = ({ event }) => {
 
 const Event = () => {
   const { id } = useParams();
-  const event = useMemo(() => findEvent(id), [id]);
-  const [live, setLive] = useState(false);
+  const [event, setEvent] = useState(null);
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+
+  const refresh = useCallback(async () => {
+    try {
+      const data = await fetchEventState(id);
+      setEvent(data);
+      setError(null);
+    } catch (err) {
+      if (err.response?.status === 401 || err.response?.status === 404) {
+        try {
+          const data = await fetchEvent(id);
+          setEvent(data);
+        } catch (_) {
+          setEvent(null);
+        }
+      } else {
+        setError(err.message ?? 'Failed to load event');
+      }
+    }
+  }, [id]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const status = event?.status;
+  useEffect(() => {
+    if (status !== 'live' && status !== 'paused') return undefined;
+    const t = setInterval(refresh, POLL_MS);
+    return () => clearInterval(t);
+  }, [status, refresh]);
+
+  const run = (fn) => async () => {
+    setBusy(true);
+    try {
+      const updated = await fn(id);
+      setEvent(updated);
+    } catch (err) {
+      setError(err.response?.data?.error ?? err.message ?? 'Action failed');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (!event) {
     return (
       <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
         <Navbar />
         <Container sx={{ py: 8, textAlign: 'center' }}>
-          <Typography variant="h5" gutterBottom>
-            Event not found.
-          </Typography>
-          <Button component={RouterLink} to="/" startIcon={<ArrowBack />}>
-            Back to schedule
-          </Button>
+          {error ? (
+            <>
+              <Typography variant="h5" gutterBottom>{error}</Typography>
+              <Button component={RouterLink} to="/" startIcon={<ArrowBack />}>
+                Back to schedule
+              </Button>
+            </>
+          ) : (
+            <CircularProgress />
+          )}
         </Container>
       </Box>
     );
   }
 
+  const canControl = true; // TODO: gate on user role/permission once role-aware UI lands
+  const isLive = event.status === 'live' || event.status === 'paused';
+  const watchUrl = event.shareToken
+    ? `${window.location.origin}/watch/${event.shareToken}`
+    : null;
+  const copyShare = async () => {
+    if (!watchUrl) return;
+    try {
+      await navigator.clipboard.writeText(watchUrl);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch (_) {
+      window.prompt('Copy this link to share:', watchUrl);
+    }
+  };
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <Navbar />
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-          sx={{ mb: 3 }}
-        >
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
           <Stack direction="row" alignItems="center" spacing={1}>
             <Button
               component={RouterLink}
@@ -517,7 +597,7 @@ const Event = () => {
               {event.show}
             </Typography>
           </Stack>
-          <Stack direction="row" spacing={3} color="text.secondary">
+          <Stack direction="row" spacing={2} alignItems="center" color="text.secondary">
             <Stack direction="row" spacing={0.75} alignItems="center">
               <CalendarMonth sx={{ fontSize: 16 }} />
               <Typography variant="body2">{fmtSchedule(event.scheduledAt)}</Typography>
@@ -528,16 +608,56 @@ const Event = () => {
             </Stack>
             <Stack direction="row" spacing={0.75} alignItems="center">
               <GroupsOutlined sx={{ fontSize: 16 }} />
-              <Typography variant="body2">{event.crew.length} crew</Typography>
+              <Typography variant="body2">{event.crew?.length ?? 0} crew</Typography>
             </Stack>
+            {watchUrl && (
+              <Button
+                size="small"
+                variant="outlined"
+                color="inherit"
+                startIcon={<Share />}
+                onClick={copyShare}
+                sx={{ textTransform: 'none' }}
+              >
+                {shareCopied ? 'Copied!' : 'Copy viewer link'}
+              </Button>
+            )}
           </Stack>
         </Stack>
 
-        {live ? (
-          <Live event={event} onStop={() => setLive(false)} />
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
+
+        {isLive ? (
+          <Live
+            event={event}
+            canControl={canControl}
+            busy={busy}
+            onPause={run(pauseEvent)}
+            onResume={run(resumeEvent)}
+            onAdvance={run(advanceEvent)}
+            onStop={run(stopEvent)}
+          />
+        ) : event.status === 'completed' ? (
+          <Card>
+            <CardContent sx={{ textAlign: 'center', py: 6 }}>
+              <Typography variant="overline" color="text.secondary">
+                Off air
+              </Typography>
+              <Typography variant="h4" sx={{ mt: 1 }}>
+                Episode complete
+              </Typography>
+              <Typography color="text.secondary" sx={{ mt: 1 }}>
+                {event.name} ran for {fmtDuration(event.durationSec)}.
+              </Typography>
+            </CardContent>
+          </Card>
         ) : (
           <>
-            <PreShow event={event} onStart={() => setLive(true)} />
+            <PreShow event={event} canControl={canControl} busy={busy} onStart={run(startEvent)} />
             <PreShowRundown event={event} />
           </>
         )}

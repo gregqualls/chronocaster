@@ -1,16 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link as RouterLink, useLocation } from 'react-router-dom';
 import {
   AppBar,
+  Avatar,
   Box,
   Button,
   IconButton,
+  Menu,
+  MenuItem,
   Stack,
   Toolbar,
   Typography,
 } from '@mui/material';
-import { Brightness4, Brightness7 } from '@mui/icons-material';
+import { Brightness4, Brightness7, Login, Logout } from '@mui/icons-material';
 import { useColorMode } from '../theme/ThemeProvider';
+import { useAuth } from '../auth/AuthContext';
 
 const navLinks = [
   { to: '/', label: 'Dashboard' },
@@ -26,6 +30,71 @@ const useClock = () => {
     return () => clearInterval(id);
   }, []);
   return now;
+};
+
+const initials = (name = '') =>
+  name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+const UserMenu = () => {
+  const { user, logout, isAuthenticated } = useAuth();
+  const [anchor, setAnchor] = useState(null);
+
+  if (!isAuthenticated) {
+    return (
+      <Button
+        component={RouterLink}
+        to="/login"
+        size="small"
+        variant="contained"
+        color="primary"
+        startIcon={<Login />}
+        sx={{ fontWeight: 700, letterSpacing: 1 }}
+      >
+        Sign in
+      </Button>
+    );
+  }
+
+  return (
+    <>
+      <IconButton onClick={(e) => setAnchor(e.currentTarget)} size="small">
+        <Avatar sx={{ width: 30, height: 30, fontSize: 13 }}>
+          {initials(user?.name || 'U')}
+        </Avatar>
+      </IconButton>
+      <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}>
+        <MenuItem disabled>
+          <Stack>
+            <Typography variant="body2">{user?.name || 'Signed in'}</Typography>
+            {user?.email && (
+              <Typography variant="caption" color="text.secondary">
+                {user.email}
+              </Typography>
+            )}
+            {user?.roles?.length ? (
+              <Typography variant="caption" color="text.secondary">
+                {user.roles.join(', ')}
+              </Typography>
+            ) : null}
+          </Stack>
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setAnchor(null);
+            logout();
+          }}
+        >
+          <Logout fontSize="small" sx={{ mr: 1 }} />
+          Sign out
+        </MenuItem>
+      </Menu>
+    </>
+  );
 };
 
 const Navbar = () => {
@@ -67,11 +136,13 @@ const Navbar = () => {
 
         <Stack direction="row" spacing={0.5}>
           {navLinks.map(({ to, label }) => {
-            const active = location.pathname === to || (to === '/' && location.pathname === '/dashboard');
+            const active =
+              location.pathname === to ||
+              (to === '/' && location.pathname === '/dashboard');
             return (
               <Button
                 key={to}
-                component={Link}
+                component={RouterLink}
                 to={to}
                 size="small"
                 color="inherit"
@@ -105,6 +176,8 @@ const Navbar = () => {
         <IconButton onClick={toggleColorMode} size="small" color="inherit">
           {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
         </IconButton>
+
+        <UserMenu />
       </Toolbar>
     </AppBar>
   );
