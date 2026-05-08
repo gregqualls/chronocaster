@@ -1,0 +1,99 @@
+# Upsun configuration, generated using AI at: 2026-05-08T08:33:29.713Z
+# AI can make mistakes. Please modify this file to suit your needs.
+applications:
+  chronocaster-backend:
+    type: php:8.5
+    source:
+      root: chronocaster-backend
+    build:
+      flavor: none
+    hooks:
+      build: |
+        set -ex
+        composer install --no-progress --no-interaction --optimize-autoloader --no-dev
+
+        # Generate Laravel APP_KEY from platform entropy
+        echo >> .environment 'export APP_KEY="base64:$(echo $PLATFORM_PROJECT_ENTROPY | base32 --decode | base64)"'
+
+        # Set DB_URL for MariaDB service
+        echo >> .environment 'export DB_URL="mysql://$DB_USERNAME:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_PATH"'
+
+        # Set APP_URL from primary route
+        echo >> .environment 'export APP_URL=$(echo $PLATFORM_ROUTES | base64 --decode | jq -r "to_entries[] | select(.value.primary == true) | .key")'
+
+      deploy: |
+        set -ex
+        php artisan migrate --force
+        php artisan optimize
+
+    web:
+      locations:
+        /:
+          root: public
+          passthru: /index.php
+          index: [index.php]
+        /storage:
+          root: storage/app/public
+          scripts: false
+
+    runtime:
+      extensions:
+        - pdo_mysql
+
+    variables:
+      env:
+        APP_ENV: production
+        APP_DEBUG: false
+        DB_CONNECTION: mariadb
+
+    relationships:
+      db: {}
+
+    mounts:
+      storage/app/public:
+        source: storage
+      storage/app/private:
+        source: storage
+      storage/framework/views:
+        source: storage
+      storage/framework/sessions:
+        source: storage
+      storage/logs:
+        source: storage
+      storage/framework/cache:
+        source: tmp
+      bootstrap/cache:
+        source: tmp
+
+  chronocaster-frontend:
+    type: nodejs:24
+    source:
+      root: chronocaster-frontend
+    build:
+      flavor: none
+    hooks:
+      build: |
+        set -ex
+        npm install --omit=dev
+        npm run build
+    web:
+      commands:
+        start: npm start
+      locations:
+        /:
+          root: public
+          passthru: true
+          allow: false
+        /api:
+          passthru: true
+        /health:
+          passthru: true
+
+services:
+  db:
+    type: mariadb:11.8
+
+routes:
+  https://{default}/:
+    type: upstream
+    upstream: chronocaster-frontend:http
