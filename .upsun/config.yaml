@@ -85,6 +85,9 @@ applications:
       env:
         REACT_APP_API_URL: /api
 
+    relationships:
+      backend: "chronocaster-backend:http"
+
     hooks:
       build: |
         set -ex
@@ -93,24 +96,19 @@ applications:
 
     web:
       commands:
-        start: sleep infinity
+        start: node server.js
+      upstream:
+        socket_family: tcp
       locations:
         /:
-          root: build
-          passthru: /index.html
-          index: [index.html]
-          scripts: false
+          passthru: true
           allow: true
-          expires: 5m
 
 services:
   db:
     type: mariadb:11.8
 
 routes:
-  https://{default}/api:
-    type: upstream
-    upstream: chronocaster-backend:http
   https://{default}/:
     type: upstream
     upstream: chronocaster-frontend:http
