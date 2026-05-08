@@ -26,7 +26,10 @@ applications:
 
       deploy: |
         set -ex
-        php artisan optimize:clear
+        # The bootstrap/cache mount persists across deploys; nuke any
+        # stale package/route caches before booting Laravel.
+        rm -f bootstrap/cache/packages.php bootstrap/cache/services.php \
+              bootstrap/cache/config.php   bootstrap/cache/routes-v7.php
         php artisan package:discover --ansi
         php artisan migrate --force
         php artisan db:seed --force
