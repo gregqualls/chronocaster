@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -21,6 +21,7 @@ import {
   Schedule,
 } from '@mui/icons-material';
 import Navbar from '../components/Navbar';
+import CreateEventDialog from '../components/CreateEventDialog';
 import { fetchEvents } from '../services/events';
 import { fmtDuration, fmtSchedule } from '../utils/format';
 
@@ -126,21 +127,22 @@ const useNow = (intervalMs = 30_000) => {
 
 const Dashboard = () => {
   useNow();
+  const navigate = useNavigate();
   const [events, setEvents] = useState([]);
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const data = await fetchEvents();
+      setEvents(data);
+    } catch {
+      setEvents([]);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    fetchEvents()
-      .then((data) => {
-        if (!cancelled) setEvents(data);
-      })
-      .catch(() => {
-        if (!cancelled) setEvents([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    load();
+  }, [load]);
 
   const upcoming = events.filter((e) => e.status !== 'completed');
   const recent = events.filter((e) => e.status === 'completed');
@@ -163,7 +165,12 @@ const Dashboard = () => {
             </Typography>
             <Typography variant="h4">Schedule</Typography>
           </Box>
-          <Button variant="outlined" color="primary" startIcon={<Add />}>
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<Add />}
+            onClick={() => setCreateOpen(true)}
+          >
             New Event
           </Button>
         </Stack>
@@ -215,6 +222,14 @@ const Dashboard = () => {
           </>
         )}
       </Container>
+      <CreateEventDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={async (created) => {
+          await load();
+          if (created?.id) navigate(`/events/${created.id}`);
+        }}
+      />
     </Box>
   );
 };

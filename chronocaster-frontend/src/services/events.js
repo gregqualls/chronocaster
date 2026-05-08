@@ -67,3 +67,38 @@ export const pauseEvent  = (id) => action(id, 'pause')();
 export const resumeEvent = (id) => action(id, 'resume')();
 export const advanceEvent= (id) => action(id, 'advance')();
 export const stopEvent   = (id) => action(id, 'stop')();
+
+export const fetchPrograms = async () => {
+  if (!REMOTE) {
+    return [
+      { id: 'mock-1', name: 'The Long Road Podcast', default_duration: 2640 },
+      { id: 'mock-2', name: 'Internal All-Hands',    default_duration: 3600 },
+      { id: 'mock-3', name: 'Marketing Launch',      default_duration: 5400 },
+    ];
+  }
+  const { data } = await apiClient.get('/programs');
+  const items = Array.isArray(data) ? data : data.data;
+  return items;
+};
+
+export const createEvent = async (payload) => {
+  if (!REMOTE) {
+    const fake = {
+      ...payload,
+      id: 'demo-' + Math.random().toString(36).slice(2, 7),
+      status: 'scheduled',
+      crew: [],
+      rundown: [],
+      durationSec: payload.duration_sec ?? 0,
+    };
+    return fake;
+  }
+  const { data } = await apiClient.post('/units', payload);
+  return normalizeUnit(unwrap(data));
+};
+
+export const addSegment = async (unitId, payload) => {
+  if (!REMOTE) return null;
+  const { data } = await apiClient.post(`/units/${unitId}/segments`, payload);
+  return unwrap(data);
+};
