@@ -508,12 +508,12 @@ const Event = () => {
     refresh();
   }, [refresh]);
 
+  const status = event?.status;
   useEffect(() => {
-    if (!event) return undefined;
-    if (event.status !== 'live' && event.status !== 'paused') return undefined;
+    if (status !== 'live' && status !== 'paused') return undefined;
     const t = setInterval(refresh, POLL_MS);
     return () => clearInterval(t);
-  }, [event?.status, refresh]);
+  }, [status, refresh]);
 
   const run = (fn) => async () => {
     setBusy(true);
