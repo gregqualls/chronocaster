@@ -78,6 +78,14 @@ export const fetchWatchState = async (token) => {
   return normalizeUnit(unwrap(data));
 };
 
+export const createProgram = async (payload) => {
+  if (!REMOTE) {
+    return { id: 'demo-' + Math.random().toString(36).slice(2, 7), ...payload };
+  }
+  const { data } = await apiClient.post('/programs', payload);
+  return unwrap(data);
+};
+
 export const fetchPrograms = async () => {
   if (!REMOTE) {
     return [

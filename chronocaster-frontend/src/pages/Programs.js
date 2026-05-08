@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Box,
+  Button,
   Card,
   CardContent,
   Container,
@@ -8,40 +9,71 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { LibraryBooks } from '@mui/icons-material';
+import { Add, LibraryBooks } from '@mui/icons-material';
 import Navbar from '../components/Navbar';
+import CreateProgramDialog from '../components/CreateProgramDialog';
 import { fetchPrograms } from '../services/events';
 import { fmtDuration } from '../utils/format';
 
 const Programs = () => {
   const [programs, setPrograms] = useState([]);
+  const [createOpen, setCreateOpen] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     fetchPrograms().then(setPrograms).catch(() => setPrograms([]));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <Navbar />
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Typography variant="overline" color="text.secondary">
-          Library
-        </Typography>
-        <Typography variant="h4" sx={{ mb: 0.5 }}>
-          Programs
-        </Typography>
-        <Typography color="text.secondary" sx={{ mb: 4 }}>
-          Reusable show templates. Each program is the parent of all its episodes (units).
-        </Typography>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          spacing={2}
+          sx={{ mb: 3 }}
+        >
+          <Box>
+            <Typography variant="overline" color="text.secondary">
+              Library
+            </Typography>
+            <Typography variant="h4">Programs</Typography>
+            <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+              Reusable show templates. Each program is the parent of its scheduled events.
+            </Typography>
+          </Box>
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<Add />}
+            onClick={() => setCreateOpen(true)}
+          >
+            New Program
+          </Button>
+        </Stack>
 
         <Grid container spacing={3}>
           {programs.length === 0 && (
             <Grid item xs={12}>
-              <Card><CardContent>
-                <Typography color="text.secondary">
-                  No programs yet.
-                </Typography>
-              </CardContent></Card>
+              <Card>
+                <CardContent sx={{ textAlign: 'center', py: 5 }}>
+                  <Typography color="text.secondary">No programs yet.</Typography>
+                  <Button
+                    sx={{ mt: 2 }}
+                    variant="contained"
+                    color="primary"
+                    startIcon={<Add />}
+                    onClick={() => setCreateOpen(true)}
+                  >
+                    Create the first one
+                  </Button>
+                </CardContent>
+              </Card>
             </Grid>
           )}
           {programs.map((p) => (
@@ -68,6 +100,12 @@ const Programs = () => {
             </Grid>
           ))}
         </Grid>
+
+        <CreateProgramDialog
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onCreated={() => load()}
+        />
       </Container>
     </Box>
   );
