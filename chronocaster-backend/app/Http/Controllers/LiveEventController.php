@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Events\UnitStateChanged;
 use App\Http\Resources\UnitResource;
+use App\Http\Resources\UnitWatchResource;
 use App\Models\Unit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -15,6 +16,15 @@ class LiveEventController extends Controller
         $unit->load(['program', 'host', 'crew', 'segments']);
 
         return new UnitResource($unit);
+    }
+
+    public function watch(string $token)
+    {
+        $unit = Unit::where('share_token', $token)
+            ->with(['program', 'segments'])
+            ->firstOrFail();
+
+        return new UnitWatchResource($unit);
     }
 
     public function start(Request $request, Unit $unit)

@@ -13,6 +13,8 @@ Route::get('/now', fn () => [
     'epoch_ms' => (int) (microtime(true) * 1000),
 ]);
 
+Route::get('/watch/{token}', [LiveEventController::class, 'watch']);
+
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login',    [AuthController::class, 'login']);
 Route::post('/auth/logout',   [AuthController::class, 'logout']);

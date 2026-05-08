@@ -26,10 +26,14 @@ import { fetchEvents } from '../services/events';
 import { fmtDuration, fmtSchedule } from '../utils/format';
 
 const statusMeta = {
-  ready:     { label: 'READY',     color: 'primary',   variant: 'filled' },
+  draft:     { label: 'DRAFT',     color: 'default',   variant: 'outlined' },
   scheduled: { label: 'SCHEDULED', color: 'secondary', variant: 'outlined' },
+  ready:     { label: 'READY',     color: 'primary',   variant: 'filled'   },
+  live:      { label: 'LIVE',      color: 'primary',   variant: 'filled'   },
+  paused:    { label: 'PAUSED',    color: 'warning',   variant: 'filled'   },
   completed: { label: 'COMPLETED', color: 'default',   variant: 'outlined' },
 };
+const fallbackMeta = { label: 'UNKNOWN', color: 'default', variant: 'outlined' };
 
 const Stat = ({ label, value, sub, icon }) => (
   <Card elevation={0} sx={{ flex: 1 }}>
@@ -53,8 +57,9 @@ const Stat = ({ label, value, sub, icon }) => (
 );
 
 const EventCard = ({ event }) => {
-  const meta = statusMeta[event.status];
+  const meta = statusMeta[event.status] ?? fallbackMeta;
   const isReady = event.status === 'ready';
+  const isLive = event.status === 'live' || event.status === 'paused';
   const isCompleted = event.status === 'completed';
 
   return (
@@ -100,7 +105,7 @@ const EventCard = ({ event }) => {
             </Stack>
           </Stack>
 
-          {isReady && (
+          {(isReady || isLive) && (
             <Button
               size="small"
               variant="contained"
@@ -108,7 +113,7 @@ const EventCard = ({ event }) => {
               startIcon={<PlayArrow />}
               sx={{ alignSelf: 'flex-start', mt: 1, fontWeight: 700, letterSpacing: 1 }}
             >
-              GO TO CONTROL ROOM
+              {isLive ? 'JOIN CONTROL ROOM' : 'GO TO CONTROL ROOM'}
             </Button>
           )}
         </CardContent>

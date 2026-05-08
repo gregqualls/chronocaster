@@ -21,6 +21,7 @@ const normalizeUnit = (u) => ({
   currentSegmentStartedAt: u.current_segment_started_at ?? null,
   startedAt: u.started_at ?? null,
   pausedAt: u.paused_at ?? null,
+  shareToken: u.share_token ?? null,
 });
 
 const unwrap = (data) => data?.data ?? data;
@@ -67,6 +68,15 @@ export const pauseEvent  = (id) => action(id, 'pause')();
 export const resumeEvent = (id) => action(id, 'resume')();
 export const advanceEvent= (id) => action(id, 'advance')();
 export const stopEvent   = (id) => action(id, 'stop')();
+
+export const fetchWatchState = async (token) => {
+  if (!REMOTE) {
+    const fake = mockEvents[0];
+    return { ...fake, status: 'live' };
+  }
+  const { data } = await apiClient.get(`/watch/${token}`);
+  return normalizeUnit(unwrap(data));
+};
 
 export const fetchPrograms = async () => {
   if (!REMOTE) {

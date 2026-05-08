@@ -16,6 +16,14 @@ export const fmtDuration = (sec) => {
   return r ? `${h}h ${r}m` : `${h}h`;
 };
 
+export const fmtSigned = (sec) => {
+  const sign = sec >= 0 ? '+' : '-';
+  const a = Math.abs(Math.floor(sec));
+  const m = Math.floor(a / 60);
+  const s = a % 60;
+  return `${sign}${m}:${String(s).padStart(2, '0')}`;
+};
+
 export const fmtSchedule = (iso) => {
   const d = new Date(iso);
   const now = new Date();

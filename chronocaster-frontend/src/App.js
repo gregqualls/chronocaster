@@ -8,6 +8,7 @@ import Segments from './pages/Segments';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import NotFound from './pages/NotFound';
+import Watch from './pages/Watch';
 import ProtectedRoute from './auth/ProtectedRoute';
 
 const guard = (el) => <ProtectedRoute>{el}</ProtectedRoute>;
@@ -17,6 +18,7 @@ function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/watch/:token" element={<Watch />} />
       <Route path="/" element={guard(<Dashboard />)} />
       <Route path="/dashboard" element={guard(<Dashboard />)} />
       <Route path="/events/:id" element={guard(<Event />)} />

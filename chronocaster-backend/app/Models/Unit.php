@@ -32,7 +32,17 @@ class Unit extends Model
         'current_segment_id',
         'current_segment_started_at',
         'paused_at',
+        'share_token',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Unit $unit) {
+            if (empty($unit->share_token)) {
+                $unit->share_token = \Illuminate\Support\Str::random(24);
+            }
+        });
+    }
 
     protected $casts = [
         'scheduled_at'                  => 'datetime',

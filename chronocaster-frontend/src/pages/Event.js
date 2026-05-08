@@ -24,6 +24,7 @@ import {
   Pause,
   PlayArrow,
   Schedule,
+  Share,
   Stop,
   Sync,
   Wifi,
@@ -38,7 +39,7 @@ import {
   startEvent,
   stopEvent,
 } from '../services/events';
-import { fmtDuration, fmtSchedule, fmtTimer } from '../utils/format';
+import { fmtDuration, fmtSchedule, fmtSigned, fmtTimer } from '../utils/format';
 
 const POLL_MS = 2000;
 
@@ -281,7 +282,7 @@ const PreShow = ({ event, onStart, busy, canControl }) => {
   );
 };
 
-const Live = ({ event, canControl, onPause, onResume, onAdvance, onStop, busy }) => {
+const Live = ({ event, canControl, onPause, onResume, onAdvance, onStop, onShare, busy }) => {
   const nowMs = useNowMs();
   const { activeIndex, elapsedInActive, totalElapsed, totalDuration } = computeLive(event, nowMs);
   const active = event.rundown[activeIndex] ?? event.rundown[0];
@@ -289,6 +290,11 @@ const Live = ({ event, canControl, onPause, onResume, onAdvance, onStop, busy })
   const progress = active ? Math.min(100, (elapsedInActive / Math.max(1, active.duration)) * 100) : 0;
   const remainingTotal = totalDuration - totalElapsed;
   const isPaused = event.status === 'paused';
+
+  const showStartedMs = event.startedAt ? new Date(event.startedAt).getTime() : null;
+  const referenceMs = isPaused && event.pausedAt ? new Date(event.pausedAt).getTime() : nowMs;
+  const actualElapsedSec = showStartedMs ? Math.max(0, Math.floor((referenceMs - showStartedMs) / 1000)) : 0;
+  const pace = totalElapsed - actualElapsedSec; // > 0 ahead, < 0 over time
 
   return (
     <Grid container spacing={3}>
@@ -403,16 +409,22 @@ const Live = ({ event, canControl, onPause, onResume, onAdvance, onStop, busy })
           <Card elevation={0}>
             <CardContent>
               <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
-                <Sync color="success" fontSize="small" />
+                <Sync color={pace >= 0 ? 'success' : 'warning'} fontSize="small" />
                 <Typography variant="overline" color="text.secondary">
-                  Sync
+                  Schedule Pace
                 </Typography>
               </Stack>
-              <Typography variant="h4" sx={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                {POLL_MS}ms
+              <Typography
+                variant="h4"
+                sx={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  color: pace >= 0 ? 'success.main' : 'warning.main',
+                }}
+              >
+                {fmtSigned(pace)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                polling every {POLL_MS / 1000}s
+                {pace >= 0 ? 'ahead of plan' : 'over plan'} · {fmtTimer(actualElapsedSec)} since go-live
               </Typography>
             </CardContent>
           </Card>
@@ -484,6 +496,7 @@ const Event = () => {
   const [event, setEvent] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -549,6 +562,19 @@ const Event = () => {
 
   const canControl = true; // TODO: gate on user role/permission once role-aware UI lands
   const isLive = event.status === 'live' || event.status === 'paused';
+  const watchUrl = event.shareToken
+    ? `${window.location.origin}/watch/${event.shareToken}`
+    : null;
+  const copyShare = async () => {
+    if (!watchUrl) return;
+    try {
+      await navigator.clipboard.writeText(watchUrl);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch (_) {
+      window.prompt('Copy this link to share:', watchUrl);
+    }
+  };
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -571,7 +597,7 @@ const Event = () => {
               {event.show}
             </Typography>
           </Stack>
-          <Stack direction="row" spacing={3} color="text.secondary">
+          <Stack direction="row" spacing={2} alignItems="center" color="text.secondary">
             <Stack direction="row" spacing={0.75} alignItems="center">
               <CalendarMonth sx={{ fontSize: 16 }} />
               <Typography variant="body2">{fmtSchedule(event.scheduledAt)}</Typography>
@@ -584,6 +610,18 @@ const Event = () => {
               <GroupsOutlined sx={{ fontSize: 16 }} />
               <Typography variant="body2">{event.crew?.length ?? 0} crew</Typography>
             </Stack>
+            {watchUrl && (
+              <Button
+                size="small"
+                variant="outlined"
+                color="inherit"
+                startIcon={<Share />}
+                onClick={copyShare}
+                sx={{ textTransform: 'none' }}
+              >
+                {shareCopied ? 'Copied!' : 'Copy viewer link'}
+              </Button>
+            )}
           </Stack>
         </Stack>
 
