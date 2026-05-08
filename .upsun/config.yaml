@@ -1,25 +1,28 @@
-# Upsun configuration, generated using AI at: 2026-05-08T08:33:29.713Z
-# AI can make mistakes. Please modify this file to suit your needs.
 applications:
   chronocaster-backend:
-    type: php:8.5
+    type: php:8.4
     source:
       root: chronocaster-backend
-    build:
-      flavor: none
+
     hooks:
       build: |
         set -ex
         composer install --no-progress --no-interaction --optimize-autoloader --no-dev
 
-        # Generate Laravel APP_KEY from platform entropy
-        echo >> .environment 'export APP_KEY="base64:$(echo $PLATFORM_PROJECT_ENTROPY | base32 --decode | base64)"'
+        # Generate a deterministic Laravel APP_KEY from project entropy.
+        echo >> .environment 'export APP_KEY="base64:$(php -r "echo base64_encode(hash(\"sha256\", getenv(\"PLATFORM_PROJECT_ENTROPY\"), true));")"'
 
-        # Set DB_URL for MariaDB service
-        echo >> .environment 'export DB_URL="mysql://$DB_USERNAME:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_PATH"'
-
-        # Set APP_URL from primary route
-        echo >> .environment 'export APP_URL=$(echo $PLATFORM_ROUTES | base64 --decode | jq -r "to_entries[] | select(.value.primary == true) | .key")'
+        # Map MariaDB relationship credentials to Laravel DB_* env vars.
+        cat >> .environment <<'EOF'
+        export RELATIONSHIPS_JSON=$(echo $PLATFORM_RELATIONSHIPS | base64 --decode)
+        export DB_HOST=$(echo $RELATIONSHIPS_JSON | jq -r '.db[0].host')
+        export DB_PORT=$(echo $RELATIONSHIPS_JSON | jq -r '.db[0].port')
+        export DB_DATABASE=$(echo $RELATIONSHIPS_JSON | jq -r '.db[0].path')
+        export DB_USERNAME=$(echo $RELATIONSHIPS_JSON | jq -r '.db[0].username')
+        export DB_PASSWORD=$(echo $RELATIONSHIPS_JSON | jq -r '.db[0].password')
+        export DATABASE_URL="mysql://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_DATABASE}"
+        export APP_URL=$(echo $PLATFORM_ROUTES | base64 --decode | jq -r 'to_entries[] | select(.value.primary == true) | .key')
+        EOF
 
       deploy: |
         set -ex
@@ -35,6 +38,7 @@ applications:
         /storage:
           root: storage/app/public
           scripts: false
+          allow: true
 
     runtime:
       extensions:
@@ -47,53 +51,66 @@ applications:
         DB_CONNECTION: mariadb
 
     relationships:
-      db: {}
+      db: "db:mysql"
 
     mounts:
       storage/app/public:
         source: storage
+        source_path: public
       storage/app/private:
         source: storage
+        source_path: private
       storage/framework/views:
         source: storage
+        source_path: views
       storage/framework/sessions:
         source: storage
+        source_path: sessions
       storage/logs:
         source: storage
+        source_path: logs
       storage/framework/cache:
         source: tmp
+        source_path: framework-cache
       bootstrap/cache:
         source: tmp
+        source_path: bootstrap-cache
 
   chronocaster-frontend:
     type: nodejs:24
     source:
       root: chronocaster-frontend
-    build:
-      flavor: none
+
+    variables:
+      env:
+        REACT_APP_API_URL: /api
+
     hooks:
       build: |
         set -ex
-        npm install --omit=dev
+        npm ci
         npm run build
+
     web:
       commands:
-        start: npm start
+        start: sleep infinity
       locations:
         /:
-          root: public
-          passthru: true
-          allow: false
-        /api:
-          passthru: true
-        /health:
-          passthru: true
+          root: build
+          passthru: /index.html
+          index: [index.html]
+          scripts: false
+          allow: true
+          expires: 5m
 
 services:
   db:
     type: mariadb:11.8
 
 routes:
+  https://{default}/api:
+    type: upstream
+    upstream: chronocaster-backend:http
   https://{default}/:
     type: upstream
     upstream: chronocaster-frontend:http
