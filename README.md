@@ -4,6 +4,14 @@ A live-event control room for podcasts, webinars, and broadcast productions. One
 
 > **Status:** working v1. Cross-client sync uses HTTP polling (~2s convergence). WebSocket transport (Reverb) is the planned upgrade.
 
+> [!WARNING]
+> **This is a demo project, not a production app.** A few things to fix before pointing real users at it:
+> - The seed creates a `Super Admin` with hardcoded creds (`admin@chronocaster.local` / `chronocaster`). Set `DEMO_ADMIN_PASSWORD` (and ideally `DEMO_ADMIN_EMAIL`) to your own values before the first deploy, or remove the `DemoSeeder::seedAdminUser()` call entirely and create your own user.
+> - There is no "change password" or "forgot password" UI; password changes go through tinker / a seeder run today.
+> - The control buttons (Pause / Resume / Advance / End) are visible to everyone authenticated. The server-side permission (`control_live_event`) is enforced, but the UI doesn't yet hide the buttons from non-Directors.
+> - There is no rate limiting, audit log, or proper account management beyond what Laravel ships with.
+> - Cross-client sync is HTTP polling — fine for a few clients, not fine for hundreds. See the *What's not built* section.
+
 ## What it does
 
 - **Schedule view** — list of upcoming, ready, and recent events with status chips (DRAFT / SCHEDULED / READY / LIVE / PAUSED / COMPLETED).
