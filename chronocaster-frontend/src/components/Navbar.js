@@ -4,20 +4,13 @@ import {
   AppBar,
   Box,
   Button,
-  Chip,
   IconButton,
   Stack,
   Toolbar,
   Typography,
-  keyframes,
 } from '@mui/material';
-import { Brightness4, Brightness7, FiberManualRecord } from '@mui/icons-material';
+import { Brightness4, Brightness7 } from '@mui/icons-material';
 import { useColorMode } from '../theme/ThemeProvider';
-
-const pulse = keyframes`
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-`;
 
 const navLinks = [
   { to: '/', label: 'Dashboard' },
@@ -69,18 +62,6 @@ const Navbar = () => {
             CHRONOCASTER
           </Typography>
         </Stack>
-
-        <Chip
-          size="small"
-          icon={
-            <FiberManualRecord
-              sx={{ animation: `${pulse} 1.4s ease-in-out infinite`, fontSize: 12 }}
-            />
-          }
-          label="ON AIR"
-          color="primary"
-          sx={{ fontWeight: 700, letterSpacing: 1.5, px: 1 }}
-        />
 
         <Box sx={{ flex: 1 }} />
 
