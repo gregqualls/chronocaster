@@ -4,14 +4,21 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Segment extends Model
 {
-    protected $fillable = ['name', 'description', 'session_id'];
+    use HasFactory;
 
-    public function session()
+    protected $fillable = ['name', 'description', 'unit_id', 'duration', 'position'];
+
+    protected $casts = [
+        'duration' => 'integer',
+        'position' => 'integer',
+    ];
+
+    public function unit(): BelongsTo
     {
-        return $this->belongsTo(Session::class);
+        return $this->belongsTo(Unit::class);
     }
 }
-

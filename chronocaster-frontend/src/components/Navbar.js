@@ -2,15 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   AppBar,
+  Avatar,
   Box,
   Button,
+  Chip,
   IconButton,
+  Menu,
+  MenuItem,
   Stack,
   Toolbar,
   Typography,
 } from '@mui/material';
-import { Brightness4, Brightness7 } from '@mui/icons-material';
+import { Brightness4, Brightness7, Login, Logout } from '@mui/icons-material';
 import { useColorMode } from '../theme/ThemeProvider';
+import { useAuth } from '../auth/useAuth';
 
 const navLinks = [
   { to: '/', label: 'Dashboard' },
@@ -26,6 +31,80 @@ const useClock = () => {
     return () => clearInterval(id);
   }, []);
   return now;
+};
+
+const initials = (name = '') =>
+  name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+const UserMenu = () => {
+  const { user, logout, isDemo, login, isAuthenticated } = useAuth();
+  const [anchor, setAnchor] = useState(null);
+
+  if (!isAuthenticated) {
+    return (
+      <Button
+        size="small"
+        variant="contained"
+        color="primary"
+        startIcon={<Login />}
+        onClick={login}
+        sx={{ fontWeight: 700, letterSpacing: 1 }}
+      >
+        Sign in
+      </Button>
+    );
+  }
+
+  return (
+    <>
+      <Stack direction="row" spacing={1} alignItems="center">
+        {isDemo && (
+          <Chip
+            size="small"
+            label="DEMO"
+            variant="outlined"
+            sx={{ height: 20, fontSize: 10, letterSpacing: 1.5 }}
+          />
+        )}
+        <IconButton onClick={(e) => setAnchor(e.currentTarget)} size="small">
+          <Avatar
+            src={user?.picture || undefined}
+            sx={{ width: 30, height: 30, fontSize: 13 }}
+          >
+            {initials(user?.name || 'U')}
+          </Avatar>
+        </IconButton>
+      </Stack>
+      <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}>
+        <MenuItem disabled>
+          <Stack>
+            <Typography variant="body2">{user?.name || 'Signed in'}</Typography>
+            {user?.email && (
+              <Typography variant="caption" color="text.secondary">
+                {user.email}
+              </Typography>
+            )}
+          </Stack>
+        </MenuItem>
+        {!isDemo && (
+          <MenuItem
+            onClick={() => {
+              setAnchor(null);
+              logout();
+            }}
+          >
+            <Logout fontSize="small" sx={{ mr: 1 }} />
+            Sign out
+          </MenuItem>
+        )}
+      </Menu>
+    </>
+  );
 };
 
 const Navbar = () => {
@@ -67,7 +146,9 @@ const Navbar = () => {
 
         <Stack direction="row" spacing={0.5}>
           {navLinks.map(({ to, label }) => {
-            const active = location.pathname === to || (to === '/' && location.pathname === '/dashboard');
+            const active =
+              location.pathname === to ||
+              (to === '/' && location.pathname === '/dashboard');
             return (
               <Button
                 key={to}
@@ -105,6 +186,8 @@ const Navbar = () => {
         <IconButton onClick={toggleColorMode} size="small" color="inherit">
           {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
         </IconButton>
+
+        <UserMenu />
       </Toolbar>
     </AppBar>
   );
