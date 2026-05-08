@@ -126,3 +126,7 @@ See `.claude/plans/ok-it-s-up-and-gentle-pelican.md` for the full roadmap.
 - **Backend:** Laravel 11, PHP 8.3, MariaDB 11.8, Spatie laravel-permission
 - **Frontend:** React 18, CRA, Material UI 5 (custom dark broadcast theme), `axios`, `react-router-dom`, `http-proxy-middleware`
 - **Hosting:** Upsun (frontend `nodejs:24` + backend `php:8.3` + MariaDB service, single public route exposed via the frontend Express server)
+
+## License
+
+MIT — see [LICENSE](LICENSE).
