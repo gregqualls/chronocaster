@@ -1,35 +1,14 @@
 import axios from 'axios';
 
-let tokenGetter = async () => null;
-
-export const setAccessTokenGetter = (fn) => {
-  tokenGetter = fn;
-};
-
 const apiClient = axios.create({
   baseURL: process.env.REACT_APP_API_URL || '/api',
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
+    Accept: 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
   },
 });
-
-apiClient.interceptors.request.use(async (config) => {
-  try {
-    const token = await tokenGetter();
-    if (token) {
-      config.headers = config.headers ?? {};
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-  } catch (_) {
-    // ignore — request will go out unauthenticated and 401 if required.
-  }
-  return config;
-});
-
-export const fetchMe = async () => {
-  const { data } = await apiClient.get('/me');
-  return data;
-};
 
 export const fetchStats = async () => {
   const { data } = await apiClient.get('/stats');

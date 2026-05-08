@@ -1,43 +1,25 @@
-import React, { useEffect } from 'react';
-import { Box, Button, CircularProgress, Container, Typography } from '@mui/material';
-import { useAuth } from './useAuth';
+import React from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
+import { Box, CircularProgress } from '@mui/material';
+import { useAuth } from './AuthContext';
 
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, isLoading, isDemo, login } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
 
-  useEffect(() => {
-    if (!isDemo && !isLoading && !isAuthenticated) {
-      login();
-    }
-  }, [isAuthenticated, isLoading, isDemo, login]);
+  if (isLoading) {
+    return (
+      <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', bgcolor: 'background.default' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
-  if (isDemo || isAuthenticated) return children;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
 
-  return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        bgcolor: 'background.default',
-        display: 'grid',
-        placeItems: 'center',
-      }}
-    >
-      <Container maxWidth="sm" sx={{ textAlign: 'center' }}>
-        {isLoading ? (
-          <CircularProgress />
-        ) : (
-          <>
-            <Typography variant="h5" sx={{ mb: 2 }}>
-              Sign in to ChronoCaster
-            </Typography>
-            <Button variant="contained" color="primary" onClick={login}>
-              Continue
-            </Button>
-          </>
-        )}
-      </Container>
-    </Box>
-  );
+  return children;
 };
 
 export default ProtectedRoute;

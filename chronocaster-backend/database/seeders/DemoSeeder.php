@@ -4,13 +4,17 @@ namespace Database\Seeders;
 
 use App\Models\Program;
 use App\Models\Unit;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DemoSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->seedAdminUser();
+
         if (Program::count() > 0) {
             return;
         }
@@ -68,6 +72,23 @@ class DemoSeeder extends Seeder
             ['Q&A',           600],
             ['Closing',       120],
         ]);
+    }
+
+    private function seedAdminUser(): void
+    {
+        $email = env('DEMO_ADMIN_EMAIL', 'admin@chronocaster.local');
+        $password = env('DEMO_ADMIN_PASSWORD', 'chronocaster');
+
+        $user = User::firstOrNew(['email' => $email]);
+        $user->name = $user->name ?: 'Admin';
+        if (! $user->exists) {
+            $user->password = Hash::make($password);
+        }
+        $user->save();
+
+        if ($user->roles()->count() === 0) {
+            $user->assignRole('Super Admin');
+        }
     }
 
     private function createUnit(Program $program, string $name, Carbon $when, string $status, array $segments): Unit

@@ -5,26 +5,26 @@ import Event from './pages/Event';
 import Programs from './pages/Programs';
 import Units from './pages/Units';
 import Segments from './pages/Segments';
+import Login from './pages/Login';
+import Register from './pages/Register';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './auth/ProtectedRoute';
-import AccessTokenBridge from './auth/AccessTokenBridge';
 
 const guard = (el) => <ProtectedRoute>{el}</ProtectedRoute>;
 
 function App() {
   return (
-    <>
-      <AccessTokenBridge />
-      <Routes>
-        <Route path="/" element={guard(<Dashboard />)} />
-        <Route path="/dashboard" element={guard(<Dashboard />)} />
-        <Route path="/events/:id" element={guard(<Event />)} />
-        <Route path="/programs" element={guard(<Programs />)} />
-        <Route path="/units" element={guard(<Units />)} />
-        <Route path="/segments" element={guard(<Segments />)} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/" element={guard(<Dashboard />)} />
+      <Route path="/dashboard" element={guard(<Dashboard />)} />
+      <Route path="/events/:id" element={guard(<Event />)} />
+      <Route path="/programs" element={guard(<Programs />)} />
+      <Route path="/units" element={guard(<Units />)} />
+      <Route path="/segments" element={guard(<Segments />)} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 }
 

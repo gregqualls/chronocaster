@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import './index.css';
 import App from './App';
 import ThemeProvider from './theme/ThemeProvider';
-import Auth0ProviderWithHistory from './auth/auth0-provider';
+import { AuthProvider } from './auth/AuthContext';
 import reportWebVitals from './reportWebVitals';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
@@ -12,9 +12,9 @@ root.render(
   <React.StrictMode>
     <ThemeProvider>
       <BrowserRouter>
-        <Auth0ProviderWithHistory>
+        <AuthProvider>
           <App />
-        </Auth0ProviderWithHistory>
+        </AuthProvider>
       </BrowserRouter>
     </ThemeProvider>
   </React.StrictMode>,

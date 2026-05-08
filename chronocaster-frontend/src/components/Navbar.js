@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link as RouterLink, useLocation } from 'react-router-dom';
 import {
   AppBar,
   Avatar,
   Box,
   Button,
-  Chip,
   IconButton,
   Menu,
   MenuItem,
@@ -15,7 +14,7 @@ import {
 } from '@mui/material';
 import { Brightness4, Brightness7, Login, Logout } from '@mui/icons-material';
 import { useColorMode } from '../theme/ThemeProvider';
-import { useAuth } from '../auth/useAuth';
+import { useAuth } from '../auth/AuthContext';
 
 const navLinks = [
   { to: '/', label: 'Dashboard' },
@@ -42,17 +41,18 @@ const initials = (name = '') =>
     .toUpperCase();
 
 const UserMenu = () => {
-  const { user, logout, isDemo, login, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
   const [anchor, setAnchor] = useState(null);
 
   if (!isAuthenticated) {
     return (
       <Button
+        component={RouterLink}
+        to="/login"
         size="small"
         variant="contained"
         color="primary"
         startIcon={<Login />}
-        onClick={login}
         sx={{ fontWeight: 700, letterSpacing: 1 }}
       >
         Sign in
@@ -62,24 +62,11 @@ const UserMenu = () => {
 
   return (
     <>
-      <Stack direction="row" spacing={1} alignItems="center">
-        {isDemo && (
-          <Chip
-            size="small"
-            label="DEMO"
-            variant="outlined"
-            sx={{ height: 20, fontSize: 10, letterSpacing: 1.5 }}
-          />
-        )}
-        <IconButton onClick={(e) => setAnchor(e.currentTarget)} size="small">
-          <Avatar
-            src={user?.picture || undefined}
-            sx={{ width: 30, height: 30, fontSize: 13 }}
-          >
-            {initials(user?.name || 'U')}
-          </Avatar>
-        </IconButton>
-      </Stack>
+      <IconButton onClick={(e) => setAnchor(e.currentTarget)} size="small">
+        <Avatar sx={{ width: 30, height: 30, fontSize: 13 }}>
+          {initials(user?.name || 'U')}
+        </Avatar>
+      </IconButton>
       <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}>
         <MenuItem disabled>
           <Stack>
@@ -89,19 +76,22 @@ const UserMenu = () => {
                 {user.email}
               </Typography>
             )}
+            {user?.roles?.length ? (
+              <Typography variant="caption" color="text.secondary">
+                {user.roles.join(', ')}
+              </Typography>
+            ) : null}
           </Stack>
         </MenuItem>
-        {!isDemo && (
-          <MenuItem
-            onClick={() => {
-              setAnchor(null);
-              logout();
-            }}
-          >
-            <Logout fontSize="small" sx={{ mr: 1 }} />
-            Sign out
-          </MenuItem>
-        )}
+        <MenuItem
+          onClick={() => {
+            setAnchor(null);
+            logout();
+          }}
+        >
+          <Logout fontSize="small" sx={{ mr: 1 }} />
+          Sign out
+        </MenuItem>
       </Menu>
     </>
   );
@@ -152,7 +142,7 @@ const Navbar = () => {
             return (
               <Button
                 key={to}
-                component={Link}
+                component={RouterLink}
                 to={to}
                 size="small"
                 color="inherit"
