@@ -1,0 +1,15 @@
+# Personal editor / agent configs
+.claude/
+.vscode/
+.idea/
+.cursor/
+.zed/
+*.code-workspace
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Local environment overrides
+.env.local
+.env.*.local
