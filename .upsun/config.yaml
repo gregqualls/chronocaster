@@ -1,3 +1,4 @@
+# Build marker: 2026-05-08 (re-deploy demo)
 applications:
   chronocaster-backend:
     type: php:8.3
