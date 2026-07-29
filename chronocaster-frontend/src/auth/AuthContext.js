@@ -31,6 +31,7 @@ export const AuthProvider = ({ children }) => {
   }, [refresh]);
 
   const login = useCallback(async (email, password, remember = false) => {
+    console.log('login attempt', { email, password, remember });
     const { data } = await apiClient.post('/auth/login', { email, password, remember });
     setUser(data?.user ?? null);
     return data?.user;
